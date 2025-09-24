@@ -1,6 +1,7 @@
 import cv2 
 import numpy as np
 import matplotlib.pyplot as plt
+import math
 
 found_squares = 0
 total_squares = 24
@@ -10,14 +11,18 @@ grayscale_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 template = cv2.imread("/home/dksoren/KingD_Porj/Images/crown.png", cv2.IMREAD_GRAYSCALE)
 light_green_square = 0
 dark_green_square = 0
-
+yellow_square = 0
+blue_square = 0
 new_width = 5
 new_height = 5
-
+found_crown = 0
 resized_img = cv2.resize(img, (new_width, new_height))
+start_pos = [2,2]
 #print(f"Resized image shape: {resized_img[1,1]}")  
 
 checker_array = np.zeros((new_height, new_width), dtype=bool)
+color_array = np.zeros((new_height, new_width), dtype=object)
+crown_array = np.zeros((new_height, new_width), dtype=bool)
 
 def all_squares_checked(found_squares, total_squares):
     return found_squares >= total_squares
@@ -60,34 +65,56 @@ class color_checkers:
         global light_green_square, dark_green_square
         for i in range(new_height):
             for j in range(new_width):
-                if i == 2 and j == 2:
+                if i == start_pos[0] and j == start_pos[1] or checker_array[i, j] == True:
                     continue
                 else:
                     total_squares_checked += 1
-                    if convert_to_HSI(resized_img)[i, j, 0] > 0.20 and convert_to_HSI(resized_img)[i, j, 0] < 0.4:# and convert_to_HSI(resized_img)[i, j, 1] > 0.09:
+                    if convert_to_HSI(resized_img)[i, j, 0] > 0.20 and convert_to_HSI(resized_img)[i, j, 0] < 0.4 and convert_to_HSI(resized_img)[i, j, 1] > 0.09:
                         found_squares += 1
                         checker_array[i, j] = 1
                         B, G, R = cv2.split(resized_img)
                         if G[i, j] > 100:
                             light_green_square += 1
+                            color_array[i, j] = "LG"
                         else:
                             dark_green_square += 1
+                            color_array[i, j] = "DG"
                         #print(f"Found green pixel at ({j}, {i}) with H: {convert_H_to_degrees(convert_to_HSI(resized_img)[i, j, 0])}, S: {convert_to_HSI(resized_img)[i, j, 1]}, I: {convert_to_HSI(resized_img)[i, j, 2]}")
 
         print(f"{checker_array} and found {found_squares} out of {total_squares} squares ")
         print(f"Light green squares: {light_green_square}, Dark green squares: {dark_green_square}")
     def check_for_yellow_squares(resized_img):
         global found_squares, total_squares_checked, checker_array, new_height, new_width
+        global yellow_square
         for i in range(new_height):
             for j in range(new_width):
-                if i == 2 and j == 2:
+                if i == start_pos[0] and j == start_pos[1] or checker_array[i, j] == True:
                     continue
                 else:
                     total_squares_checked += 1
-                    if convert_to_HSI(resized_img)[i, j, 0] > 0.10 and convert_to_HSI(resized_img)[i, j, 0] < 0.20:# and convert_to_HSI(resized_img)[i, j, 1] > 0.09:
+                    if convert_to_HSI(resized_img)[i, j, 0] > 0.10 and convert_to_HSI(resized_img)[i, j, 0] < 0.20 and convert_to_HSI(resized_img)[i, j, 2] > 0.45: #bright yellow
                         found_squares += 1
                         checker_array[i, j] = 1
+                        yellow_square += 1
+                        color_array[i, j] = "Y"
                         #print(f"Found yellow pixel at ({j}, {i}) with H: {convert_H_to_degrees(convert_to_HSI(resized_img)[i, j, 0])}, S: {convert_to_HSI(resized_img)[i, j, 1]}, I: {convert_to_HSI(resized_img)[i, j, 2]}")
+
+        print(f"{checker_array} and found {found_squares} out of {total_squares} squares ")
+    def check_for_blue_squares(resized_img):
+        global found_squares, total_squares_checked, checker_array, new_height, new_width
+        global blue_square
+        for i in range(new_height):
+            for j in range(new_width):
+                if i == 2 and j == 2 or checker_array[i, j] == True:
+                    continue
+                else:
+                    total_squares_checked += 1
+                    if convert_to_HSI(resized_img)[i, j, 0] > 0.55 and convert_to_HSI(resized_img)[i, j, 0] < 0.75:
+                        found_squares += 1
+                        checker_array[i, j] = 1
+                        blue_square += 1
+                        color_array[i, j] = "B"
+                        #print(f"Found blue pixel at ({j}, {i}) with H: {convert_H_to_degrees(convert_to_HSI(resized_img)[i, j, 0])}, S: {convert_to_HSI(resized_img)[i, j, 1]}, I: {convert_to_HSI(resized_img)[i, j, 2]}")
 
         print(f"{checker_array} and found {found_squares} out of {total_squares} squares ")
 class image_manipulator:
@@ -121,39 +148,60 @@ def rotate_image(image, angle):
     M = cv2.getRotationMatrix2D(center, angle, 1.0)
     rotated = cv2.warpAffine(image, M, (w, h))
     return rotated
-def template_matching(img, template):
-    found_crown = 0
-    w, h = template.shape[:2]
-    res = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
-    threshold = 0.3
-    loc = np.where(res >= threshold)
-    for i in range(0,5):
-        rotated_template = rotate_image(template, i*90)
-        w, h = rotated_template.shape[:2]
-        res = cv2.matchTemplate(img, rotated_template, cv2.TM_CCOEFF_NORMED)
+class crown_finder:
+    def template_matching(img, template):
+        global found_crown
+        w, h = template.shape[:2]
+        p_w, p_h = img.shape[:2]
+        res = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
+        threshold = 0.3
         loc = np.where(res >= threshold)
-        found_crown += 1
-        for pt in zip(*loc[::-1]):
-            cv2.rectangle(img, pt, (pt[0] + w, pt[1] + h), 255, 2)
-    #print(f"Found crown {found_crown} times")
-    return img
+        for i in range(0,5):
+            rotated_template = rotate_image(template, i*90)
+            w, h = rotated_template.shape[:2]
+            res = cv2.matchTemplate(img, rotated_template, cv2.TM_CCOEFF_NORMED)
+            loc = np.where(res >= threshold)
+
+            for pt in zip(*loc[::-1]):
+                
+             
+                cv2.rectangle(img, pt, (pt[0] + w, pt[1] + h), 255, 2)
+        #print(f"Found crown {found_crown} times")
+        
+        return img
+    
+    def map_value(value, in_min, in_max, out_min, out_max):
+        return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+        
 
 def main():
     global found_squares, total_squares, total_squares_checked, checker_array
-    #color_checkers.check_for_green_squares(resized_img)
-    #color_checkers.check_for_yellow_squares(resized_img)
-
-    #cv2.imshow("Resized Image", image_manipulator.mask(img))
-    #cv2.imshow("Blurred Image", image_manipulator.mask(image_manipulator.blur(img)))
+    checker_array[2,2] = True
+    edges = cv2.Canny(image_manipulator.normalize(img), 240,255)
+    
+    color_checkers.check_for_green_squares(resized_img)
+    color_checkers.check_for_yellow_squares(resized_img)
+    color_checkers.check_for_blue_squares(resized_img)
+    print(f"Found light greeen: {light_green_square}, dark green: {dark_green_square} and yellow: {yellow_square} and blue: {blue_square}")
+    crowns = crown_finder.template_matching(grayscale_img, template)
+    print(f"Color array: \n{color_array}")
+    print(f"crowns found: {found_crown}")
+    cv2.imshow("Resized Image", resized_img )
+    #cv2.imshow("Blurred Image", image_manipulator.normalize(img))
     #resized_img = cv2.resize(image_manipulator.mask(image_manipulator.blur(img)), (new_width, new_height))
+    test_map = crown_finder.map_value(2, 0,5,0,100)
+     # Function to map a value from one range to another
 
     cv2.imshow("OG Image", img)
-    #cv2.imshow("normalized Image", image_manipulator.normalize(img))
-    edges = cv2.Canny(image_manipulator.normalize(img), 240,255) #max 
+    cv2.imshow("normalized Image", image_manipulator.normalize(img))
+     #max 
     
-    cv2.imshow("Manipulated",template_matching(edges, template))
-    
+    cv2.imshow("Manipulated",crown_finder.template_matching(edges, template))
+   
+
     cv2.waitKey(0)
    
 if __name__ == '__main__':
     main()
+
+#from 5x5 to 100x100 there is 20x20 pixel in each square
