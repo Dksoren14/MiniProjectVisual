@@ -5,11 +5,12 @@ import matplotlib.pyplot as plt
 found_squares = 0
 total_squares = 24
 total_squares_checked = 0
-img = cv2.imread("/home/dksoren/KingD_Porj/Images/1.jpg")
+img = cv2.imread("/home/jesper-kwame-jensen/MiniProjectVisual/Images/1.jpg")
 grayscale_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-template = cv2.imread("/home/dksoren/KingD_Porj/Images/crown.png", cv2.IMREAD_GRAYSCALE)
+template = cv2.imread("/home/jesper-kwame-jensen/MiniProjectVisual/Images/crown.png", cv2.IMREAD_GRAYSCALE)
 light_green_square = 0
 dark_green_square = 0
+brown_square = 0
 
 new_width = 5
 new_height = 5
@@ -88,6 +89,36 @@ class color_checkers:
                         found_squares += 1
                         checker_array[i, j] = 1
                         #print(f"Found yellow pixel at ({j}, {i}) with H: {convert_H_to_degrees(convert_to_HSI(resized_img)[i, j, 0])}, S: {convert_to_HSI(resized_img)[i, j, 1]}, I: {convert_to_HSI(resized_img)[i, j, 2]}")
+    def check_for_red_squares(resized_img):
+        global found_squares, total_squares_checked, checker_array, new_height, new_width
+        global light_green_square
+        for i in range(new_height):
+            for j in range(new_width):
+                if i == 2 and j == 2:
+                    continue
+                else:
+                    total_squares_checked += 1
+                    if (convert_to_HSI(resized_img)[i, j, 0] > 0.00 and convert_to_HSI(resized_img)[i, j, 0] < 0.10):# and convert_to_HSI(resized_img)[i, j, 1] > 0.09:
+                        found_squares += 1
+                        checker_array[i, j] = 1
+                        light_green_square += 1
+
+    def check_for_brown_squares(resized_img):
+        global found_squares, total_squares_checked, checker_array, new_height, new_width
+        global brown_square
+        for i in range(new_height):
+            for j in range(new_width):
+                if i == 2 and j == 2:
+                    continue
+                else:
+                    total_squares_checked += 1
+                    if (0.13 < convert_to_HSI(resized_img)[i, j, 0] < 0.139 and 0.468 < convert_to_HSI(resized_img)[i, j, 1] < 0.65 and 0.337 < convert_to_HSI(resized_img)[i, j, 2] < 0.37):
+                        found_squares += 1
+                        checker_array[i, j] = 1
+                        brown_square += 1                    
+                       
+
+                        #print(f"Found red pixel at ({j}, {i}) with H: {convert_H_to_degrees(convert_to_HSI(resized_img)[i, j, 0])}, S: {convert_to_HSI(resized_img)[i, j, 1]}, I: {convert_to_HSI(resized_img)[i, j, 2]}")                    
 
         print(f"{checker_array} and found {found_squares} out of {total_squares} squares ")
 class image_manipulator:
@@ -140,19 +171,27 @@ def template_matching(img, template):
 
 def main():
     global found_squares, total_squares, total_squares_checked, checker_array
-    #color_checkers.check_for_green_squares(resized_img)
-    #color_checkers.check_for_yellow_squares(resized_img)
+    color_checkers.check_for_green_squares(resized_img)
+    color_checkers.check_for_yellow_squares(resized_img)
+    color_checkers.check_for_red_squares(resized_img)
+    color_checkers.check_for_brown_squares(resized_img)
+
+    print(f"light green squares: {light_green_square}")
+    print(f"dark green squares: {dark_green_square}")
+    print(f"yellow squares: {yellow_square}")
+    print(f"Brown squares: {brown_square}")
 
     #cv2.imshow("Resized Image", image_manipulator.mask(img))
     #cv2.imshow("Blurred Image", image_manipulator.mask(image_manipulator.blur(img)))
     #resized_img = cv2.resize(image_manipulator.mask(image_manipulator.blur(img)), (new_width, new_height))
 
-    cv2.imshow("OG Image", img)
+    cv2.imshow("OG Image", resized_img)
     #cv2.imshow("normalized Image", image_manipulator.normalize(img))
     edges = cv2.Canny(image_manipulator.normalize(img), 240,255) #max 
     
-    cv2.imshow("Manipulated",template_matching(edges, template))
+    #cv2.imshow("Manipulated",template_matching(edges, template))
     
+    #print(convert_to_HSI(resized_img)[2,1]) #For printing HSI values of specific pixel
     cv2.waitKey(0)
    
 if __name__ == '__main__':
