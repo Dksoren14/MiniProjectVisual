@@ -178,7 +178,7 @@ def main():
 
     print(f"light green squares: {light_green_square}")
     print(f"dark green squares: {dark_green_square}")
-    print(f"yellow squares: {yellow_square}")
+    #print(f"yellow squares: {yell}")
     print(f"Brown squares: {brown_square}")
 
     #cv2.imshow("Resized Image", image_manipulator.mask(img))
