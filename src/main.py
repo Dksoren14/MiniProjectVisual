@@ -11,6 +11,8 @@ template = cv2.imread("/home/jesper-kwame-jensen/MiniProjectVisual/Images/crown.
 light_green_square = 0
 dark_green_square = 0
 brown_square = 0
+yellow_square = 0
+blue_square = 0
 
 new_width = 5
 new_height = 5
@@ -78,7 +80,10 @@ class color_checkers:
         print(f"{checker_array} and found {found_squares} out of {total_squares} squares ")
         print(f"Light green squares: {light_green_square}, Dark green squares: {dark_green_square}")
     def check_for_yellow_squares(resized_img):
+
+
         global found_squares, total_squares_checked, checker_array, new_height, new_width
+        global yellow_square
         for i in range(new_height):
             for j in range(new_width):
                 if i == 2 and j == 2:
@@ -88,7 +93,25 @@ class color_checkers:
                     if convert_to_HSI(resized_img)[i, j, 0] > 0.10 and convert_to_HSI(resized_img)[i, j, 0] < 0.20:# and convert_to_HSI(resized_img)[i, j, 1] > 0.09:
                         found_squares += 1
                         checker_array[i, j] = 1
+                        yellow_square += 1
+
+
                         #print(f"Found yellow pixel at ({j}, {i}) with H: {convert_H_to_degrees(convert_to_HSI(resized_img)[i, j, 0])}, S: {convert_to_HSI(resized_img)[i, j, 1]}, I: {convert_to_HSI(resized_img)[i, j, 2]}")
+    def check_for_blue_squares(resized_img):
+        global found_squares, total_squares_checked, checker_array, new_height, new_width
+        global blue_square
+        for i in range(new_height):
+            for j in range(new_width):
+                if i == 2 and j == 2 or checker_array[i, j] == True:
+                    continue
+                else:
+                    total_squares_checked += 1
+                    if convert_to_HSI(resized_img)[i, j, 0] > 0.55 and convert_to_HSI(resized_img)[i, j, 0] < 0.75:
+                        found_squares += 1
+                        checker_array[i, j] = 1
+                        blue_square += 1
+                        color_array[i, j] = "B"
+                        #print(f"Found blue pixel at ({j}, {i}) with H: {convert_H_to_degrees(convert_to_HSI(resized_img)[i, j, 0])}, S: {convert_to_HSI(resized_img)[i, j, 1]}, I: {convert_to_HSI(resized_img)[i, j, 2]}")                   
     def check_for_red_squares(resized_img):
         global found_squares, total_squares_checked, checker_array, new_height, new_width
         global light_green_square
@@ -172,7 +195,7 @@ def template_matching(img, template):
 def main():
     global found_squares, total_squares, total_squares_checked, checker_array
     color_checkers.check_for_green_squares(resized_img)
-    color_checkers.check_for_yellow_squares(resized_img)
+    #color_checkers.check_for_yellow_squares(resized_img)
     color_checkers.check_for_red_squares(resized_img)
     color_checkers.check_for_brown_squares(resized_img)
 
@@ -180,6 +203,7 @@ def main():
     print(f"dark green squares: {dark_green_square}")
     #print(f"yellow squares: {yell}")
     print(f"Brown squares: {brown_square}")
+
 
     #cv2.imshow("Resized Image", image_manipulator.mask(img))
     #cv2.imshow("Blurred Image", image_manipulator.mask(image_manipulator.blur(img)))
