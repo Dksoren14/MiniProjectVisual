@@ -3,26 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 
-found_squares = 0
-total_squares = 24
-total_squares_checked = 0
-img = cv2.imread("/home/dksoren/KingD_Porj/Images/1.jpg")
-grayscale_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-template = cv2.imread("/home/dksoren/KingD_Porj/Images/crown.png", cv2.IMREAD_GRAYSCALE)
-light_green_square = 0
-dark_green_square = 0
-yellow_square = 0
-blue_square = 0
-new_width = 5
-new_height = 5
-found_crown = 0
-resized_img = cv2.resize(img, (new_width, new_height))
-start_pos = [2,2]
-#print(f"Resized image shape: {resized_img[1,1]}")  
 
-checker_array = np.zeros((new_height, new_width), dtype=bool)
-color_array = np.zeros((new_height, new_width), dtype=object)
-crown_array = np.zeros((new_height, new_width), dtype=bool)
 
 def all_squares_checked(found_squares, total_squares):
     return found_squares >= total_squares
@@ -150,55 +131,122 @@ def rotate_image(image, angle):
     return rotated
 class crown_finder:
     def template_matching(img, template):
-        global found_crown
+        global crown_array_buffer
+        found_crown = 0
         w, h = template.shape[:2]
-        p_w, p_h = img.shape[:2]
         res = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
-        threshold = 0.3
+     
+        threshold = 0.275
+
         loc = np.where(res >= threshold)
+        buffer = 20
         for i in range(0,5):
             rotated_template = rotate_image(template, i*90)
             w, h = rotated_template.shape[:2]
-            res = cv2.matchTemplate(img, rotated_template, cv2.TM_CCOEFF_NORMED)
+            res = cv2.matchTemplate(img, rotated_template, cv2.TM_CCOEFF_NORMED) 
             loc = np.where(res >= threshold)
-
+            points = list(zip(*loc[::-1]))
             for pt in zip(*loc[::-1]):
-                
-             
-                cv2.rectangle(img, pt, (pt[0] + w, pt[1] + h), 255, 2)
-        #print(f"Found crown {found_crown} times")
-        
-        return img
-    
+                    cv2.rectangle(img, pt, (pt[0] + w, pt[1] + h), 255, 2)
+           
+       
+        return img, w,h
+
     def map_value(value, in_min, in_max, out_min, out_max):
         return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+
+    def morphology(img):
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         
+        closed = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel, iterations=15) 
+        #erosion = cv2.erode(closed, kernel, iterations=10)
+        return closed 
+    def component_analysis(img, w, h):
+        ''
+        
+        ''
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(img)
+        expected_area = int(w * h * 0.95)
+        estimated_crowns = 0
+        new_centroids = []
+        for i in range(1, num_labels):  # skip background
+            x, y, bw, bh, area = stats[i]
+            cx, cy = centroids[i]
+            n = round(area / expected_area)
+            n = max(1, n)
+            estimated_crowns += n
+
+            if n == 1:
+                new_centroids.append((cx, cy))
+            else:
+                # distribute synthetic centroids in the bounding box region
+                for j in range(n):
+                    # small random offset to spread them inside the blob box
+                    ox = np.random.uniform(-bw/4, bw/4)
+                    oy = np.random.uniform(-bh/4, bh/4)
+                    new_centroids.append((cx + ox, cy + oy))
+        
+        return estimated_crowns, np.array(new_centroids), stats
+
+
 
 def main():
-    global found_squares, total_squares, total_squares_checked, checker_array
-    checker_array[2,2] = True
+    found_squares = 0
+    total_squares = 24
+    total_squares_checked = 0
+    new_width = 5
+    new_height = 5
+    img = cv2.imread("/home/dksoren/KingD_Porj/Images/3.jpg")
+    grayscale_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    template = cv2.imread("/home/dksoren/KingD_Porj/Images/crown.png", cv2.IMREAD_GRAYSCALE)
+    checker_array = np.zeros((new_height, new_width), dtype=bool)
+
+    start_pos = [2,2]
+    checker_array[start_pos] = True
+    light_green_square = 0
+    dark_green_square = 0
+    yellow_square = 0
+    blue_square = 0
+  
+    found_crown = 0
+    resized_img = cv2.resize(img, (new_width, new_height))
+    color_array = np.zeros((new_height, new_width), dtype=object)
+    crown_array = np.zeros((new_height, new_width), dtype=bool)
+    crown_array_buffer = []
+
     edges = cv2.Canny(image_manipulator.normalize(img), 240,255)
     
-    color_checkers.check_for_green_squares(resized_img)
-    color_checkers.check_for_yellow_squares(resized_img)
-    color_checkers.check_for_blue_squares(resized_img)
-    print(f"Found light greeen: {light_green_square}, dark green: {dark_green_square} and yellow: {yellow_square} and blue: {blue_square}")
-    crowns = crown_finder.template_matching(grayscale_img, template)
-    print(f"Color array: \n{color_array}")
-    print(f"crowns found: {found_crown}")
-    cv2.imshow("Resized Image", resized_img )
+    #color_checkers.check_for_green_squares(resized_img)
+    #color_checkers.check_for_yellow_squares(resized_img)
+    #color_checkers.check_for_blue_squares(resized_img)
+    #print(f"Found light greeen: {light_green_square}, dark green: {dark_green_square} and yellow: {yellow_square} and blue: {blue_square}")
+    #crowns = crown_finder.template_matching(grayscale_img, template)
+    #print(f"Color array: \n{color_array}")
+    #print(f"crowns found: {found_crown}")
+    #cv2.imshow("Resized Image", resized_img )
     #cv2.imshow("Blurred Image", image_manipulator.normalize(img))
     #resized_img = cv2.resize(image_manipulator.mask(image_manipulator.blur(img)), (new_width, new_height))
-    test_map = crown_finder.map_value(2, 0,5,0,100)
+    #test_map = crown_finder.map_value(2, 0,5,0,100)
      # Function to map a value from one range to another
-
-    cv2.imshow("OG Image", img)
-    cv2.imshow("normalized Image", image_manipulator.normalize(img))
+    #crown_finder.template_matching(grayscale_img, template)
+    saved_edges = cv2.Canny(image_manipulator.normalize(img), 240,255)
+    image_with_crowns, width, height = crown_finder.template_matching(edges, template)
+    only_squares = image_with_crowns - saved_edges
+    separeted_crown = crown_finder.morphology(only_squares)
+    #cv2.imshow("OG Image", img)
+    #cv2.imshow("normalized Image", image_manipulator.normalize(img))
      #max 
+    #cv2.imshow("Wtf am i doing", (separeted_crown))
+    cv2.imshow("Template", image_with_crowns)
+    numb_labels, centroids, stats = crown_finder.component_analysis(separeted_crown, width, height)
+    height_img, width_img = img.shape[:2]
+    print(f"Number of crowns: {numb_labels}, with width {width} and height {height}")
+    wtf = height/5
+    print(wtf)
+    print(f"corwn at height {round(crown_finder.map_value(centroids[1,1], 0, height_img, 0, 7.4))}, and width {round(crown_finder.map_value(centroids[1,0], 0, width_img, 0, 7.2))}")
+    print(f"Og position = ({centroids[1,1]}, {centroids[1,0]})")
     
-    cv2.imshow("Manipulated",crown_finder.template_matching(edges, template))
-   
-
     cv2.waitKey(0)
    
 if __name__ == '__main__':
