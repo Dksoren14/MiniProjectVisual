@@ -62,8 +62,7 @@ class color_checkers:
                             color_array[i, j] = "DG"
                         #print(f"Found green pixel at ({j}, {i}) with H: {convert_H_to_degrees(convert_to_HSI(resized_img)[i, j, 0])}, S: {convert_to_HSI(resized_img)[i, j, 1]}, I: {convert_to_HSI(resized_img)[i, j, 2]}")
 
-        print(f"{checker_array} and found {found_squares} out of {total_squares} squares ")
-        print(f"Light green squares: {light_green_square}, Dark green squares: {dark_green_square}")
+        
     def check_for_yellow_squares(resized_img):
         global found_squares, total_squares_checked, checker_array, new_height, new_width
         global yellow_square
@@ -78,9 +77,8 @@ class color_checkers:
                         checker_array[i, j] = 1
                         yellow_square += 1
                         color_array[i, j] = "Y"
-                        #print(f"Found yellow pixel at ({j}, {i}) with H: {convert_H_to_degrees(convert_to_HSI(resized_img)[i, j, 0])}, S: {convert_to_HSI(resized_img)[i, j, 1]}, I: {convert_to_HSI(resized_img)[i, j, 2]}")
-
-        print(f"{checker_array} and found {found_squares} out of {total_squares} squares ")
+                       
+       
     def check_for_blue_squares(resized_img):
         global found_squares, total_squares_checked, checker_array, new_height, new_width
         global blue_square
@@ -95,9 +93,9 @@ class color_checkers:
                         checker_array[i, j] = 1
                         blue_square += 1
                         color_array[i, j] = "B"
-                        #print(f"Found blue pixel at ({j}, {i}) with H: {convert_H_to_degrees(convert_to_HSI(resized_img)[i, j, 0])}, S: {convert_to_HSI(resized_img)[i, j, 1]}, I: {convert_to_HSI(resized_img)[i, j, 2]}")
+                        
 
-        print(f"{checker_array} and found {found_squares} out of {total_squares} squares ")
+       
 class image_manipulator:
     def mask(img):
         img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -159,19 +157,21 @@ class crown_finder:
 
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         
-        closed = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel, iterations=15) 
+        closed = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel, iterations=20) 
         #erosion = cv2.erode(closed, kernel, iterations=10)
         return closed 
     def component_analysis(img, w, h):
-        ''
-        
+        '' 
+
         ''
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(img)
-        expected_area = int(w * h * 0.95)
+        expected_area = int(w * h * 1.2)  # slightly larger than template area
+       
         estimated_crowns = 0
         new_centroids = []
         for i in range(1, num_labels):  # skip background
             x, y, bw, bh, area = stats[i]
+          
             cx, cy = centroids[i]
             n = round(area / expected_area)
             n = max(1, n)
@@ -180,16 +180,32 @@ class crown_finder:
             if n == 1:
                 new_centroids.append((cx, cy))
             else:
-                # distribute synthetic centroids in the bounding box region
+                step_x = bw / (n + 1)
                 for j in range(n):
-                    # small random offset to spread them inside the blob box
-                    ox = np.random.uniform(-bw/4, bw/4)
-                    oy = np.random.uniform(-bh/4, bh/4)
-                    new_centroids.append((cx + ox, cy + oy))
+                    new_x = x + step_x * (j + 1)
+                    new_y = y + bh / 2  # centered vertically
+                    new_centroids.append((new_x, new_y))
         
         return estimated_crowns, np.array(new_centroids), stats
-
-
+    def correspond_to_5x5(centroids, width, height, new_width=5, new_height=5):
+        crown_positions = []
+        cell_width = width / new_width
+        cell_height = height / new_height
+        for (cx, cy) in centroids:
+            
+            grid_x = int(cx // cell_width)
+            grid_y = int(cy // cell_height)
+            crown_positions.append((grid_x, grid_y))
+            
+        #for (cx, cy) in centroids:
+        #    grid_x = round(crown_finder.map_value(cx, 0, width, 0, 5))
+        #    grid_y = round(crown_finder.map_value(cy, 0, height, 0, 5))
+        #    crown_positions.append((grid_x, grid_y))
+        return crown_positions
+    def draw_detected_crowns(img, centroids):
+        for (cx, cy) in centroids:
+            cv2.circle(img, (int(cx), int(cy)), 10, (0, 0, 255), 2)
+        return img
 
 def main():
     found_squares = 0
@@ -197,7 +213,7 @@ def main():
     total_squares_checked = 0
     new_width = 5
     new_height = 5
-    img = cv2.imread("/home/dksoren/KingD_Porj/Images/3.jpg")
+    img = cv2.imread("/home/dksoren/KingD_Porj/Images/2.jpg")
     grayscale_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     template = cv2.imread("/home/dksoren/KingD_Porj/Images/crown.png", cv2.IMREAD_GRAYSCALE)
     checker_array = np.zeros((new_height, new_width), dtype=bool)
@@ -211,6 +227,8 @@ def main():
   
     found_crown = 0
     resized_img = cv2.resize(img, (new_width, new_height))
+    resized_img_test = cv2.resize(img, (5, 5))
+    cv2.imshow("Resized Image", resized_img_test)
     color_array = np.zeros((new_height, new_width), dtype=object)
     crown_array = np.zeros((new_height, new_width), dtype=bool)
     crown_array_buffer = []
@@ -232,20 +250,21 @@ def main():
     #crown_finder.template_matching(grayscale_img, template)
     saved_edges = cv2.Canny(image_manipulator.normalize(img), 240,255)
     image_with_crowns, width, height = crown_finder.template_matching(edges, template)
+    
+  
     only_squares = image_with_crowns - saved_edges
     separeted_crown = crown_finder.morphology(only_squares)
-    #cv2.imshow("OG Image", img)
-    #cv2.imshow("normalized Image", image_manipulator.normalize(img))
-     #max 
-    #cv2.imshow("Wtf am i doing", (separeted_crown))
+
+    cv2.imshow("Wtf am i doing", (separeted_crown))
     cv2.imshow("Template", image_with_crowns)
     numb_labels, centroids, stats = crown_finder.component_analysis(separeted_crown, width, height)
     height_img, width_img = img.shape[:2]
     print(f"Number of crowns: {numb_labels}, with width {width} and height {height}")
-    wtf = height/5
-    print(wtf)
-    print(f"corwn at height {round(crown_finder.map_value(centroids[1,1], 0, height_img, 0, 7.4))}, and width {round(crown_finder.map_value(centroids[1,0], 0, width_img, 0, 7.2))}")
-    print(f"Og position = ({centroids[1,1]}, {centroids[1,0]})")
+   
+    #print(f"corwn at height {round(crown_finder.map_value(centroids[1,1], 0, height_img, 0, 7.4))}, and width {round(crown_finder.map_value(centroids[1,0], 0, width_img, 0, 7.2))}")
+    print(f"corwn positions: {crown_finder.correspond_to_5x5(centroids, width_img, height_img)}")
+    img = crown_finder.draw_detected_crowns(img, centroids)
+    #cv2.imshow("Crown Deected", img)
     
     cv2.waitKey(0)
    
