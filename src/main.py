@@ -13,12 +13,22 @@ dark_green_square = 0
 brown_square = 0
 yellow_square = 0
 blue_square = 0
+black_square = 0
 
 new_width = 5
 new_height = 5
 
+blue_width = 10
+blue_height = 10
+
+resized_for_blue = cv2.resize(img, (blue_width, blue_height))
+
 resized_img = cv2.resize(img, (new_width, new_height))
 #print(f"Resized image shape: {resized_img[1,1]}")  
+
+
+blue_array_10x10 = np.zeros((blue_height, blue_width), dtype=bool)
+
 
 checker_array = np.zeros((new_height, new_width), dtype=bool)
 
@@ -97,20 +107,47 @@ class color_checkers:
 
 
                         #print(f"Found yellow pixel at ({j}, {i}) with H: {convert_H_to_degrees(convert_to_HSI(resized_img)[i, j, 0])}, S: {convert_to_HSI(resized_img)[i, j, 1]}, I: {convert_to_HSI(resized_img)[i, j, 2]}")
-    def check_for_blue_squares(resized_img):
-        global found_squares, total_squares_checked, checker_array, new_height, new_width
+    def check_for_blue_squares(blue_width, blue_height):
+        global found_squares, total_squares_checked, checker_array, new_height, new_width, blue_array_10x10
         global blue_square
-        for i in range(new_height):
-            for j in range(new_width):
-                if i == 2 and j == 2 or checker_array[i, j] == True:
-                    continue
-                else:
+        
+
+        # resize the image for blue squares
+        resized_for_blue = cv2.resize(img, (blue_width, blue_height))
+        
+        # create a new checker array for 10x10
+        # blue_grid = np.zeros((blue_height, blue_width), dtype=bool)
+
+        for i in range(blue_height):
+            for j in range(blue_width):
+                 if i == 2 and j == 2:
+                     continue   
+                 else:
                     total_squares_checked += 1
-                    if convert_to_HSI(resized_img)[i, j, 0] > 0.55 and convert_to_HSI(resized_img)[i, j, 0] < 0.75:
-                        found_squares += 1
-                        checker_array[i, j] = 1
-                        blue_square += 1
-                        color_array[i, j] = "B"
+                    if (0.58 <= convert_to_HSI(resized_for_blue)[i, j, 0] <= 0.6 and 0.9 <= convert_to_HSI(resized_for_blue)[i, j, 1] <= 1.0 and 0.32 <= convert_to_HSI(resized_for_blue)[i, j, 2] < 0.38):
+                     #found_squares += 1
+                     blue_array_10x10[i, j] = 1
+                     #blue_square += 1
+
+                     # After detecting blue in 10x10 grid
+                     scale_i = blue_height // new_height  # 10 // 5 = 2
+                     scale_j = blue_width // new_width    # 10 // 5 = 2
+
+        for i_5 in range(new_height):
+            for j_5 in range(new_width):
+                # Map 5x5 square to corresponding 10x10 block
+                i_start = i_5 * scale_i
+                j_start = j_5 * scale_j
+                i_end = i_start + scale_i
+                j_end = j_start + scale_j
+
+                # If any pixel in this block is True in blue_array, mark checker_array
+                if np.any(blue_array_10x10[i_start:i_end, j_start:j_end]):
+                    checker_array[i_5, j_5] = True
+                    found_squares += 1
+                    blue_square += 1    
+                    
+ 
                         #print(f"Found blue pixel at ({j}, {i}) with H: {convert_H_to_degrees(convert_to_HSI(resized_img)[i, j, 0])}, S: {convert_to_HSI(resized_img)[i, j, 1]}, I: {convert_to_HSI(resized_img)[i, j, 2]}")                   
     def check_for_red_squares(resized_img):
         global found_squares, total_squares_checked, checker_array, new_height, new_width
@@ -142,7 +179,22 @@ class color_checkers:
                        
 
                         #print(f"Found red pixel at ({j}, {i}) with H: {convert_H_to_degrees(convert_to_HSI(resized_img)[i, j, 0])}, S: {convert_to_HSI(resized_img)[i, j, 1]}, I: {convert_to_HSI(resized_img)[i, j, 2]}")                    
+    def check_for_black_squares(resized_img):
+        global found_squares, total_squares_checked, checker_array, new_height, new_width
+        global black_square
+        for i in range(new_height):
+            for j in range(new_width):
+                if i == 2 and j == 2:
+                    continue
+                else:
+                    total_squares_checked += 1
+                    if (0.136 < convert_to_HSI(resized_img)[i, j, 0] < 0.139 and 0.468 < convert_to_HSI(resized_img)[i, j, 1] < 0.65 and 0.337 < convert_to_HSI(resized_img)[i, j, 2] < 0.37):
+                        found_squares += 1
+                        checker_array[i, j] = 1
+                        brown_square += 1                    
+                       
 
+                        #print(f"Found black pixel at ({j}, {i}) with H: {convert_H_to_degrees(convert_to_HSI(resized_img)[i, j, 0])}, S: {convert_to_HSI(resized_img)[i, j, 1]}, I: {convert_to_HSI(resized_img)[i, j, 2]}")
         print(f"{checker_array} and found {found_squares} out of {total_squares} squares ")
 class image_manipulator:
     def mask(img):
@@ -194,15 +246,19 @@ def template_matching(img, template):
 
 def main():
     global found_squares, total_squares, total_squares_checked, checker_array
-    color_checkers.check_for_green_squares(resized_img)
+    #color_checkers.check_for_green_squares(resized_img)
     #color_checkers.check_for_yellow_squares(resized_img)
-    color_checkers.check_for_red_squares(resized_img)
-    color_checkers.check_for_brown_squares(resized_img)
+    #color_checkers.check_for_red_squares(resized_img)
+    #color_checkers.check_for_brown_squares(resized_img)
+    color_checkers.check_for_blue_squares(blue_width, blue_height) 
+    #color_checkers.check_for_black_squares(resized_img)
 
-    print(f"light green squares: {light_green_square}")
-    print(f"dark green squares: {dark_green_square}")
+    #print(f"light green squares: {light_green_square}")
+    #print(f"dark green squares: {dark_green_square}")
     #print(f"yellow squares: {yell}")
-    print(f"Brown squares: {brown_square}")
+    #rint(f"Brown squares: {brown_square}")
+    print(f"Blue squares: {blue_square}")
+    #print(f"Black squares: {black_square}") 
 
 
     #cv2.imshow("Resized Image", image_manipulator.mask(img))
@@ -210,13 +266,18 @@ def main():
     #resized_img = cv2.resize(image_manipulator.mask(image_manipulator.blur(img)), (new_width, new_height))
 
     cv2.imshow("OG Image", resized_img)
+    cv2.imshow("OG Image", resized_for_blue)
     #cv2.imshow("normalized Image", image_manipulator.normalize(img))
     edges = cv2.Canny(image_manipulator.normalize(img), 240,255) #max 
     
     #cv2.imshow("Manipulated",template_matching(edges, template))
     
-    #print(convert_to_HSI(resized_img)[2,1]) #For printing HSI values of specific pixel
+    #print(convert_to_HSI(resized_img)[0,2]) #For printing HSI values of specific pixel
+    #print(convert_to_HSI(resized_for_blue)[0,3]) #For printing HSI values of specific pixel
+    print(checker_array)
+    #print(blue_array_10x10)
     cv2.waitKey(0)
-   
+    
 if __name__ == '__main__':
     main()
+    
