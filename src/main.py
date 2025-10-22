@@ -124,7 +124,7 @@ class color_checkers:
                      continue   
                  else:
                     total_squares_checked += 1
-                    if (0.58 <= convert_to_HSI(resized_for_blue)[i, j, 0] <= 0.6 and 0.9 <= convert_to_HSI(resized_for_blue)[i, j, 1] <= 1.0 and 0.32 <= convert_to_HSI(resized_for_blue)[i, j, 2] < 0.38):
+                    if (0.58 <= convert_to_HSI(resized_for_blue)[i, j, 0] <= 0.61 and 0.78 <= convert_to_HSI(resized_for_blue)[i, j, 1] <= 1.0 and 0.23 <= convert_to_HSI(resized_for_blue)[i, j, 2] < 0.38):
                      #found_squares += 1
                      blue_array_10x10[i, j] = 1
                      #blue_square += 1
@@ -133,17 +133,17 @@ class color_checkers:
                      scale_i = blue_height // new_height  # 10 // 5 = 2
                      scale_j = blue_width // new_width    # 10 // 5 = 2
 
-        for i_5 in range(new_height):
-            for j_5 in range(new_width):
+        for i in range(new_height):
+            for j in range(new_width):
                 # Map 5x5 square to corresponding 10x10 block
-                i_start = i_5 * scale_i
-                j_start = j_5 * scale_j
+                i_start = i * scale_i
+                j_start = j * scale_j
                 i_end = i_start + scale_i
                 j_end = j_start + scale_j
 
                 # If any pixel in this block is True in blue_array, mark checker_array
                 if np.any(blue_array_10x10[i_start:i_end, j_start:j_end]):
-                    checker_array[i_5, j_5] = True
+                    checker_array[i, j] = True
                     found_squares += 1
                     blue_square += 1    
                     
@@ -265,7 +265,7 @@ def main():
     #cv2.imshow("Blurred Image", image_manipulator.mask(image_manipulator.blur(img)))
     #resized_img = cv2.resize(image_manipulator.mask(image_manipulator.blur(img)), (new_width, new_height))
 
-    cv2.imshow("OG Image", resized_img)
+    #cv2.imshow("OG Image", resized_img)
     cv2.imshow("OG Image", resized_for_blue)
     #cv2.imshow("normalized Image", image_manipulator.normalize(img))
     edges = cv2.Canny(image_manipulator.normalize(img), 240,255) #max 
@@ -273,9 +273,9 @@ def main():
     #cv2.imshow("Manipulated",template_matching(edges, template))
     
     #print(convert_to_HSI(resized_img)[0,2]) #For printing HSI values of specific pixel
-    #print(convert_to_HSI(resized_for_blue)[0,3]) #For printing HSI values of specific pixel
-    print(checker_array)
-    #print(blue_array_10x10)
+    print(convert_to_HSI(resized_for_blue)[8,4]) #For printing HSI values of specific pixel
+    #print(checker_array)
+    print(blue_array_10x10)
     cv2.waitKey(0)
     
 if __name__ == '__main__':
