@@ -1,9 +1,13 @@
+from zipfile import Path
 import cv2 
 import numpy as np
 import matplotlib.pyplot as plt
 import math
+import crown_detector
+from pathlib import Path
+import os
 
-
+import preprocessing
 
 def all_squares_checked(found_squares, total_squares):
     return found_squares >= total_squares
@@ -95,177 +99,26 @@ class color_checkers:
                         color_array[i, j] = "B"
                         
 
-       
-class image_manipulator:
-    def mask(img):
-        img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        lower = np.array([30, 0, 120])   # a bit below
-        upper = np.array([35, 255, 255])   # yellow! note the order
-        mask = cv2.inRange(img_hsv, lower, upper) #
-        return mask
-    def blur(img):
-        median = cv2.medianBlur(img, 11) 
-        return median
-    def histogram_stretch(img):
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        cl1 = clahe.apply(img)
-        return cl1
-    def normalize(img):
-        ycrcb = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
-
-        # Equalize only the Y channel (brightness)
-        ycrcb[:,:,0] = cv2.equalizeHist(ycrcb[:,:,0])
-
-        # Convert back to BGR
-        normalized = cv2.cvtColor(ycrcb, cv2.COLOR_YCrCb2BGR)
-        return normalized
-def rotate_image(image, angle):
-    (h, w) = image.shape[:2]
-    center = (w // 2, h // 2)
-
-    # Perform the rotation
-    M = cv2.getRotationMatrix2D(center, angle, 1.0)
-    rotated = cv2.warpAffine(image, M, (w, h))
-    return rotated
-class crown_finder:
-    def template_matching(img, template):
-        global crown_array_buffer
-        found_crown = 0
-        w, h = template.shape[:2]
-        res = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
-     
-        threshold = 0.275
-
-        loc = np.where(res >= threshold)
-        buffer = 20
-        for i in range(0,5):
-            rotated_template = rotate_image(template, i*90)
-            w, h = rotated_template.shape[:2]
-            res = cv2.matchTemplate(img, rotated_template, cv2.TM_CCOEFF_NORMED) 
-            loc = np.where(res >= threshold)
-            points = list(zip(*loc[::-1]))
-            for pt in zip(*loc[::-1]):
-                    cv2.rectangle(img, pt, (pt[0] + w, pt[1] + h), 255, 2)
-           
-       
-        return img, w,h
-
-    def map_value(value, in_min, in_max, out_min, out_max):
-        return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
-
-    def morphology(img):
-
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        
-        closed = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel, iterations=20) 
-        #erosion = cv2.erode(closed, kernel, iterations=10)
-        return closed 
-    def component_analysis(img, w, h):
-        '' 
-
-        ''
-        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(img)
-        expected_area = int(w * h * 1.2)  # slightly larger than template area
-       
-        estimated_crowns = 0
-        new_centroids = []
-        for i in range(1, num_labels):  # skip background
-            x, y, bw, bh, area = stats[i]
-          
-            cx, cy = centroids[i]
-            n = round(area / expected_area)
-            n = max(1, n)
-            estimated_crowns += n
-
-            if n == 1:
-                new_centroids.append((cx, cy))
-            else:
-                step_x = bw / (n + 1)
-                for j in range(n):
-                    new_x = x + step_x * (j + 1)
-                    new_y = y + bh / 2  # centered vertically
-                    new_centroids.append((new_x, new_y))
-        
-        return estimated_crowns, np.array(new_centroids), stats
-    def correspond_to_5x5(centroids, width, height, new_width=5, new_height=5):
-        crown_positions = []
-        cell_width = width / new_width
-        cell_height = height / new_height
-        for (cx, cy) in centroids:
-            
-            grid_x = int(cx // cell_width)
-            grid_y = int(cy // cell_height)
-            crown_positions.append((grid_x, grid_y))
-            
-        #for (cx, cy) in centroids:
-        #    grid_x = round(crown_finder.map_value(cx, 0, width, 0, 5))
-        #    grid_y = round(crown_finder.map_value(cy, 0, height, 0, 5))
-        #    crown_positions.append((grid_x, grid_y))
-        return crown_positions
-    def draw_detected_crowns(img, centroids):
-        for (cx, cy) in centroids:
-            cv2.circle(img, (int(cx), int(cy)), 10, (0, 0, 255), 2)
-        return img
+    
 
 def main():
-    found_squares = 0
-    total_squares = 24
-    total_squares_checked = 0
-    new_width = 5
-    new_height = 5
-    img = cv2.imread("/home/dksoren/KingD_Porj/Images/2.jpg")
-    grayscale_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    template = cv2.imread("/home/dksoren/KingD_Porj/Images/crown.png", cv2.IMREAD_GRAYSCALE)
-    checker_array = np.zeros((new_height, new_width), dtype=bool)
-
-    start_pos = [2,2]
-    checker_array[start_pos] = True
-    light_green_square = 0
-    dark_green_square = 0
-    yellow_square = 0
-    blue_square = 0
+    
+    base_dir = Path(__file__).resolve().parent
+    image_dir = base_dir.parent / "Images"
+    img = image_dir / f"2.jpg"
+    template = image_dir / f"crown.png"
+    target_intensity = 100
+    img = cv2.imread(str(img))
+    template = cv2.imread(str(template), cv2.IMREAD_GRAYSCALE)
+    gamma_corrected = preprocessing.Preprocessing_tools.gamma_correction(img, preprocessing.Preprocessing_tools.find_gamma_value(img, target_intensity))
+    blur = cv2.GaussianBlur(gamma_corrected, (5,5), 0)
+    sharpened = cv2.addWeighted(gamma_corrected, 1.5, blur, -0.5, 0)
   
-    found_crown = 0
-    resized_img = cv2.resize(img, (new_width, new_height))
-    resized_img_test = cv2.resize(img, (5, 5))
-    cv2.imshow("Resized Image", resized_img_test)
-    color_array = np.zeros((new_height, new_width), dtype=object)
-    crown_array = np.zeros((new_height, new_width), dtype=bool)
-    crown_array_buffer = []
-
-    edges = cv2.Canny(image_manipulator.normalize(img), 240,255)
-    
-    #color_checkers.check_for_green_squares(resized_img)
-    #color_checkers.check_for_yellow_squares(resized_img)
-    #color_checkers.check_for_blue_squares(resized_img)
-    #print(f"Found light greeen: {light_green_square}, dark green: {dark_green_square} and yellow: {yellow_square} and blue: {blue_square}")
-    #crowns = crown_finder.template_matching(grayscale_img, template)
-    #print(f"Color array: \n{color_array}")
-    #print(f"crowns found: {found_crown}")
-    #cv2.imshow("Resized Image", resized_img )
-    #cv2.imshow("Blurred Image", image_manipulator.normalize(img))
-    #resized_img = cv2.resize(image_manipulator.mask(image_manipulator.blur(img)), (new_width, new_height))
-    #test_map = crown_finder.map_value(2, 0,5,0,100)
-     # Function to map a value from one range to another
-    #crown_finder.template_matching(grayscale_img, template)
-    saved_edges = cv2.Canny(image_manipulator.normalize(img), 240,255)
-    image_with_crowns, width, height = crown_finder.template_matching(edges, template)
-    
-  
-    only_squares = image_with_crowns - saved_edges
-    separeted_crown = crown_finder.morphology(only_squares)
-
-    cv2.imshow("Wtf am i doing", (separeted_crown))
-    cv2.imshow("Template", image_with_crowns)
-    numb_labels, centroids, stats = crown_finder.component_analysis(separeted_crown, width, height)
-    height_img, width_img = img.shape[:2]
-    print(f"Number of crowns: {numb_labels}, with width {width} and height {height}")
-   
-    #print(f"corwn at height {round(crown_finder.map_value(centroids[1,1], 0, height_img, 0, 7.4))}, and width {round(crown_finder.map_value(centroids[1,0], 0, width_img, 0, 7.2))}")
-    print(f"corwn positions: {crown_finder.correspond_to_5x5(centroids, width_img, height_img)}")
-    img = crown_finder.draw_detected_crowns(img, centroids)
-    #cv2.imshow("Crown Deected", img)
-    
+    cv2.imshow("Gamma Corrected", gamma_corrected)
+    cv2.imshow("Sharpened", sharpened)
+    print(f"crown found {crown_detector.output.output_for_score(gamma_corrected,template)[0]} crowns at positions {crown_detector.output.output_for_score(gamma_corrected,template)[1]}")
+    result_img = crown_detector.output.output_for_score(gamma_corrected,template)[2]
+    cv2.imshow("Original", img)
     cv2.waitKey(0)
    
 if __name__ == '__main__':
