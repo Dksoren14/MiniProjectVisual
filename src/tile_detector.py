@@ -1,4 +1,3 @@
-from zipfile import Path
 import cv2 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,7 +9,10 @@ import os
 found_squares = 0
 total_squares = 24
 total_squares_checked = 0
-img = cv2.imread("/home/dksoren/KingD_Porj/Cropped and perspective corrected boards/1.jpg")
+base_dir = Path(__file__).resolve().parent
+image_dir = base_dir.parent / "Images"
+img = image_dir / f"1.jpg"
+img = cv2.imread(str(img))
 grayscale_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 #template = cv2.imread("/home/jesper-kwame-jensen/MiniProjectVisual/Images/crown.png", cv2.IMREAD_GRAYSCALE)
 light_green_square = 0
@@ -79,19 +81,20 @@ class color_checkers:
         global found_squares, total_squares_checked, checker_array, new_height, new_width, new_array_10x10, newer_height, newer_width
         global light_green_square, dark_green_square
         start_pos = (2, 2)  # Center position to skip
+        hsi_img = convert_to_HSI(resized_img)
         for i in range(new_height):
             for j in range(new_width):
-                if i == start_pos[0] and j == start_pos[1] or checker_array[i, j] == True:
+                if (i == start_pos[0] and j == start_pos[1]) or checker_array[i, j]:
                     continue
-                else:
-                    total_squares_checked += 1
-                    if convert_to_HSI(resized_img)[i, j, 0] > 0.20 and convert_to_HSI(resized_img)[i, j, 0] < 0.4 and convert_to_HSI(resized_img)[i, j, 2] > 0.29:
-                        found_squares += 1
-                        checker_array[i, j] = 1
-                        
-                       
-                        light_green_square += 1
-                        color_array[i, j] = "LG"  
+                
+                h, s, intensity = hsi_img[i, j]
+                total_squares_checked += 1
+        
+                if 0.20 < h < 0.40 and intensity > 0.29:
+                    found_squares += 1
+                    checker_array[i, j] = 1
+                    light_green_square += 1
+                    color_array[i, j] = "LG"
     def check_for_dark_green_squares(newer_width, newer_height):
         global found_squares, total_squares_checked, checker_array, new_height, new_width, new_array_10x10
         global dark_green_square
@@ -197,17 +200,24 @@ class color_checkers:
     def check_for_red_squares(resized_img):
         global found_squares, total_squares_checked, checker_array, new_height, new_width
         global light_green_square
+
+        # Compute HSI once
+        hsi_img = convert_to_HSI(resized_img)
+
         for i in range(new_height):
             for j in range(new_width):
-                if i == 2 and j == 2 or checker_array[i, j] == True:
+                if (i == 2 and j == 2) or checker_array[i, j]:
                     continue
-                else:
-                    total_squares_checked += 1
-                    if (convert_to_HSI(resized_img)[i, j, 0] > 0.00 and convert_to_HSI(resized_img)[i, j, 0] < 0.10):# and convert_to_HSI(resized_img)[i, j, 1] > 0.09:
-                        found_squares += 1
-                        checker_array[i, j] = 1
-                        light_green_square += 1
-                        color_array[i, j] = "LG"
+
+                total_squares_checked += 1
+                h, s, intensity = hsi_img[i, j]
+
+                # Detect reddish tiles, but exclude dark/brown ones
+                if ((0.00 < h < 0.10) or (0.90 < h <= 1.00)) and s > 0.3 and intensity > 0.2:
+                    found_squares += 1
+                    checker_array[i, j] = 1
+                    light_green_square += 1  # ✅ keep this as you intend
+                    color_array[i, j] = "LG"
 
     def check_for_brown_squares(resized_img):
         global found_squares, total_squares_checked, checker_array, new_height, new_width
@@ -234,10 +244,10 @@ class color_checkers:
                     continue
                 else:
                     total_squares_checked += 1
-                    if (0.136 < convert_to_HSI(resized_img)[i, j, 0] < 0.139 and 0.468 < convert_to_HSI(resized_img)[i, j, 1] < 0.65 and 0.337 < convert_to_HSI(resized_img)[i, j, 2] < 0.37):
+                    if convert_to_HSI(resized_img)[i, j, 2] < 0.3:
                         found_squares += 1
                         checker_array[i, j] = 1
-                        brown_square += 1  
+                        black_square += 1  
                         color_array[i, j] = "BL"                  
                        
 
@@ -290,16 +300,21 @@ def template_matching(img, template):
             cv2.rectangle(img, pt, (pt[0] + w, pt[1] + h), 255, 2)
     #print(f"Found crown {found_crown} times")
     return img
-
+class output:
+    def output_for_score():
+        return color_array
+        
 def main():
     global found_squares, total_squares, total_squares_checked, checker_array
     color_checkers.check_for_dark_green_squares(newer_width, newer_height)
     color_checkers.check_for_light_green_squares(resized_img)
-    color_checkers.check_for_red_squares(resized_img)
+  
     color_checkers.check_for_brown_squares(resized_img)
     color_checkers.check_for_blue_squares(newer_width, newer_height) 
     color_checkers.check_for_yellow_squares(resized_img)
-    
+    color_checkers.check_for_black_squares(resized_img)
+    print(f"tile 0,1: {convert_to_HSI(resized_img)[0,1]}")
+    print(f"tile 1,0: {convert_to_HSI(resized_img)[1,1]}")
     print(f"light green squares: {light_green_square}")
     print(f"dark green squares: {dark_green_square}")
     print(f"yellow squares: {yellow_square}")
