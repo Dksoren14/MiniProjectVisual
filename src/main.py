@@ -111,11 +111,10 @@ def main():
     img = cv2.imread(str(img))
     template = cv2.imread(str(template), cv2.IMREAD_GRAYSCALE)
     gamma_corrected = preprocessing.Preprocessing_tools.gamma_correction(img, preprocessing.Preprocessing_tools.find_gamma_value(img, target_intensity))
-    blur = cv2.GaussianBlur(gamma_corrected, (5,5), 0)
-    sharpened = cv2.addWeighted(gamma_corrected, 1.5, blur, -0.5, 0)
+    
   
     cv2.imshow("Gamma Corrected", gamma_corrected)
-    cv2.imshow("Sharpened", sharpened)
+
     print(f"crown found {crown_detector.output.output_for_score(gamma_corrected,template)[0]} crowns at positions {crown_detector.output.output_for_score(gamma_corrected,template)[1]}")
     result_img = crown_detector.output.output_for_score(gamma_corrected,template)[2]
     cv2.imshow("Original", img)
