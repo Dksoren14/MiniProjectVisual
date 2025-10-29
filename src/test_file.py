@@ -6,6 +6,7 @@ import time
 import os
 import crown_detector
 import preprocessing
+import tile_detector
 cmax = 270 #Canny max value, old value was 320
 blurvalue = 11 #Median blur value, old value was 11
 denoisevalue = 8 #Denoise value, old value was 18
